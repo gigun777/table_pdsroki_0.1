@@ -63,6 +63,10 @@ describe('resolveEditTarget', () => {
     if (result.type === 'needsChoice') {
       expect(result.subrowIds).toHaveLength(2);
     }
+    expect(resolveEditTarget(dataset, cellRef, settings)).toEqual({
+      type: 'needsChoice',
+      subrowIds: ['r1', 'r2'],
+    });
   });
 
   it('returns canAddSubrow for a group without subrows on subrows-enabled column', () => {
