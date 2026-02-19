@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { addSubrow, ensureGroup, removeSubrow } from '../src/core/ops';
 import { addSubrow, removeSubrow } from '../src/core/ops';
 import type { SubrowsSettings, TableDataset } from '../src/types';
 
@@ -9,6 +10,27 @@ const settings: SubrowsSettings = {
     qty: true,
   },
 };
+
+describe('ensureGroup', () => {
+  it('converts base row to group + first subrow', () => {
+    const dataset: TableDataset = {
+      records: {
+        r0: { id: 'r0', kind: 'row', parentId: null, cells: { amount: 10, note: 'head', qty: 2 } },
+      },
+      order: ['r0'],
+    };
+
+    const result = ensureGroup(dataset, 'r0', settings);
+    const group = result.dataset.records[result.value.groupId];
+
+    expect(group.kind).toBe('group');
+    expect(group.cells).toEqual({ note: 'head' });
+    expect(group.childrenIds).toHaveLength(1);
+
+    const subrowId = group.childrenIds?.[0] as string;
+    expect(result.dataset.records[subrowId].cells).toEqual({ amount: 10, qty: 2 });
+  });
+});
 
 describe('addSubrow', () => {
   it('creates a new subrow', () => {
@@ -38,6 +60,8 @@ describe('addSubrow', () => {
     const result = addSubrow(dataset, 'g1', settings);
 
     expect(result.dataset.records[result.value].cells).toEqual({
+      amount: '',
+      qty: '',
       amount: null,
       qty: null,
     });

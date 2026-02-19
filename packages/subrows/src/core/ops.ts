@@ -1,4 +1,14 @@
 import { createSubrowCells, splitCellsBySubrows } from './columns';
+import {
+  cloneDataset,
+  createRowId,
+  getGroupOfRow,
+  getSubrowsOfGroup,
+  isGroup,
+  isSubrow,
+} from './model';
+import type {
+  RowId,
 import { cloneDataset, createRowId, resolveGroupId } from './model';
 import type {
   RowRecord,
@@ -7,6 +17,7 @@ import type {
   TableDataset,
 } from '../types';
 
+function requireRecord(dataset: TableDataset, rowId: RowId): RowRecord {
 function requireRecord(dataset: TableDataset, rowId: string): RowRecord {
   const row = dataset.records[rowId];
   if (!row) {
@@ -18,6 +29,21 @@ function requireRecord(dataset: TableDataset, rowId: string): RowRecord {
 
 export function ensureGroup(
   dataset: TableDataset,
+  baseRowId: RowId,
+  settings: SubrowsSettings,
+): SubrowsApiResult<{ groupId: RowId }> {
+  const current = requireRecord(dataset, baseRowId);
+
+  if (isGroup(current)) {
+    return { dataset: cloneDataset(dataset), value: { groupId: current.id } };
+  }
+
+  if (isSubrow(current)) {
+    return { dataset: cloneDataset(dataset), value: { groupId: current.parentId as RowId } };
+  }
+
+  const next = cloneDataset(dataset);
+  const sourceRow = requireRecord(next, baseRowId);
   rowId: string,
   settings: SubrowsSettings,
 ): SubrowsApiResult<{ groupId: string; firstSubrowId: string }> {
@@ -61,6 +87,9 @@ export function ensureGroup(
 
   next.records[groupId] = group;
   next.records[firstSubrowId] = firstSubrow;
+  delete next.records[baseRowId];
+
+  const rowIndex = next.order.indexOf(baseRowId);
   delete next.records[rowId];
 
   const rowIndex = next.order.indexOf(rowId);
@@ -72,12 +101,22 @@ export function ensureGroup(
 
   return {
     dataset: next,
+    value: { groupId },
     value: { groupId, firstSubrowId },
   };
 }
 
 export function addSubrow(
   dataset: TableDataset,
+  anyRowIdInGroup: RowId,
+  settings: SubrowsSettings,
+): SubrowsApiResult<RowId> {
+  const next = cloneDataset(dataset);
+  const directGroup = getGroupOfRow(next, anyRowIdInGroup);
+  const group = directGroup ?? requireRecord(next, anyRowIdInGroup);
+
+  if (!isGroup(group)) {
+    throw new Error(`Group not found for row: ${anyRowIdInGroup}`);
   rowId: string,
   settings: SubrowsSettings,
 ): SubrowsApiResult<string> {
@@ -93,6 +132,7 @@ export function addSubrow(
   const subrow: RowRecord = {
     id: subrowId,
     kind: 'row',
+    parentId: group.id,
     parentId: groupId,
     cells: createSubrowCells(settings),
     childrenIds: [],
@@ -101,6 +141,7 @@ export function addSubrow(
   group.childrenIds = [...(group.childrenIds ?? []), subrowId];
   next.records[subrowId] = subrow;
 
+  const groupIndex = next.order.indexOf(group.id);
   const groupIndex = next.order.indexOf(groupId);
   if (groupIndex >= 0) {
     const insertIndex = groupIndex + (group.childrenIds?.length ?? 0);
@@ -112,6 +153,16 @@ export function addSubrow(
   return { dataset: next, value: subrowId };
 }
 
+export function removeSubrow(dataset: TableDataset, subrowId: RowId): SubrowsApiResult<boolean> {
+  const next = cloneDataset(dataset);
+  const subrow = requireRecord(next, subrowId);
+
+  if (!isSubrow(subrow)) {
+    return { dataset: next, value: false };
+  }
+
+  const group = requireRecord(next, subrow.parentId as RowId);
+  if (!isGroup(group)) {
 export function removeSubrow(dataset: TableDataset, subrowId: string): SubrowsApiResult<boolean> {
   const next = cloneDataset(dataset);
   const subrow = requireRecord(next, subrowId);
@@ -137,12 +188,41 @@ export function removeSubrow(dataset: TableDataset, subrowId: string): SubrowsAp
   return { dataset: next, value: true };
 }
 
+export function getTransferCandidates(dataset: TableDataset, rowId: RowId): RowId[] {
 export function getTransferCandidates(dataset: TableDataset, rowId: string): string[] {
   const row = dataset.records[rowId];
   if (!row) {
     return [];
   }
 
+  if (isGroup(row)) {
+    return [...(row.childrenIds ?? [])];
+  }
+
+  const group = getGroupOfRow(dataset, rowId);
+  if (group) {
+    return [rowId];
+  }
+
+  return [rowId];
+}
+
+export function getHighlightSubrows(dataset: TableDataset, rowId: RowId): RowId[] {
+  const row = dataset.records[rowId];
+  if (!row) {
+    return [];
+  }
+
+  if (isGroup(row)) {
+    return getSubrowsOfGroup(dataset, row.id).map((record) => record.id);
+  }
+
+  const group = getGroupOfRow(dataset, row.id);
+  if (!group) {
+    return [row.id];
+  }
+
+  return getSubrowsOfGroup(dataset, group.id).map((record) => record.id);
   if (row.kind === 'group') {
     return [...(row.childrenIds ?? [])];
   }

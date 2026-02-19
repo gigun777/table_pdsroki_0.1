@@ -1,6 +1,8 @@
 export type {
   CellActionResult,
   CellRef,
+  ColKey,
+  RowId,
   RowRecord,
   SubrowsApiResult,
   SubrowsSettings,
@@ -11,5 +13,7 @@ export type {
 export { ensureGroup, addSubrow, removeSubrow, getTransferCandidates, getHighlightSubrows } from './core/ops';
 export { computeVisibleRows } from './core/compute';
 export { resolveEditTarget } from './core/selection';
+export { isGroup, isSubrow, getGroupOfRow, getSubrowsOfGroup } from './core/model';
+export { dispatchCellAction, type SubrowsUI, type SubrowsUiHooks } from './ui/contracts';
 export { dispatchCellAction, type SubrowsUiHooks } from './ui/contracts';
 export { toUiFlowState, type UiFlowState } from './ui/flow';
