@@ -20,6 +20,12 @@ export interface SubrowsUiHooks {
   onNeedsChoice?(subrowIds: RowId[]): void;
   onCanAddSubrow?(): void;
   onNormalEdit?(targetRowId: RowId): void;
+import type { CellActionResult } from '../types';
+
+export interface SubrowsUiHooks {
+  onNeedsChoice?(subrowIds: string[]): void;
+  onCanAddSubrow?(): void;
+  onNormalEdit?(targetRowId: string): void;
 }
 
 export function dispatchCellAction(result: CellActionResult, hooks: SubrowsUiHooks): void {
