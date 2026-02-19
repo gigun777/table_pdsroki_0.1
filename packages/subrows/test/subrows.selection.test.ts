@@ -53,6 +53,16 @@ describe('resolveEditTarget', () => {
     };
     const cellRef: CellRef = { rowId: 'g1', colKey: 'amount' };
 
+    const result = resolveEditTarget(dataset, cellRef, settings);
+
+    expect(result).toEqual({
+      type: 'needsChoice',
+      subrowIds: ['r1', 'r2'],
+    });
+
+    if (result.type === 'needsChoice') {
+      expect(result.subrowIds).toHaveLength(2);
+    }
     expect(resolveEditTarget(dataset, cellRef, settings)).toEqual({
       type: 'needsChoice',
       subrowIds: ['r1', 'r2'],
