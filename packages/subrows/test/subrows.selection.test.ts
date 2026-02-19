@@ -19,7 +19,10 @@ describe('resolveEditTarget', () => {
       order: ['g1', 'r1'],
     };
     const cellRef: CellRef = { rowId: 'r1', colKey: 'note' };
+<<<<<<< codex/create-npm-style-esm-package-@dilovodstvo/subrows-0yhm0y
+=======
     const cellRef: CellRef = { rowId: 'r1', columnId: 'note' };
+>>>>>>> main
 
     expect(resolveEditTarget(dataset, cellRef, settings)).toEqual({
       type: 'normalEdit',
@@ -36,7 +39,10 @@ describe('resolveEditTarget', () => {
       order: ['g1', 'r1'],
     };
     const cellRef: CellRef = { rowId: 'g1', colKey: 'amount' };
+<<<<<<< codex/create-npm-style-esm-package-@dilovodstvo/subrows-0yhm0y
+=======
     const cellRef: CellRef = { rowId: 'g1', columnId: 'amount' };
+>>>>>>> main
 
     expect(resolveEditTarget(dataset, cellRef, settings)).toEqual({
       type: 'normalEdit',
@@ -54,7 +60,10 @@ describe('resolveEditTarget', () => {
       order: ['g1', 'r1', 'r2'],
     };
     const cellRef: CellRef = { rowId: 'g1', colKey: 'amount' };
+<<<<<<< codex/create-npm-style-esm-package-@dilovodstvo/subrows-0yhm0y
+=======
     const cellRef: CellRef = { rowId: 'g1', columnId: 'amount' };
+>>>>>>> main
 
     expect(resolveEditTarget(dataset, cellRef, settings)).toEqual({
       type: 'needsChoice',

@@ -15,5 +15,12 @@ export { computeVisibleRows } from './core/compute';
 export { resolveEditTarget } from './core/selection';
 export { isGroup, isSubrow, getGroupOfRow, getSubrowsOfGroup } from './core/model';
 export { dispatchCellAction, type SubrowsUI, type SubrowsUiHooks } from './ui/contracts';
+export {
+  handleCellClickSubrowsFlow,
+  toUiFlowState,
+  type HandleCellClickSubrowsFlowInput,
+  type SubrowsActionResult,
+  type UiFlowState,
+} from './ui/flow';
 export { dispatchCellAction, type SubrowsUiHooks } from './ui/contracts';
 export { toUiFlowState, type UiFlowState } from './ui/flow';
