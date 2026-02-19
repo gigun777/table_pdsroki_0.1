@@ -19,6 +19,7 @@ describe('resolveEditTarget', () => {
       order: ['g1', 'r1'],
     };
     const cellRef: CellRef = { rowId: 'r1', colKey: 'note' };
+    const cellRef: CellRef = { rowId: 'r1', columnId: 'note' };
 
     expect(resolveEditTarget(dataset, cellRef, settings)).toEqual({
       type: 'normalEdit',
@@ -35,6 +36,7 @@ describe('resolveEditTarget', () => {
       order: ['g1', 'r1'],
     };
     const cellRef: CellRef = { rowId: 'g1', colKey: 'amount' };
+    const cellRef: CellRef = { rowId: 'g1', columnId: 'amount' };
 
     expect(resolveEditTarget(dataset, cellRef, settings)).toEqual({
       type: 'normalEdit',
@@ -52,6 +54,7 @@ describe('resolveEditTarget', () => {
       order: ['g1', 'r1', 'r2'],
     };
     const cellRef: CellRef = { rowId: 'g1', colKey: 'amount' };
+    const cellRef: CellRef = { rowId: 'g1', columnId: 'amount' };
 
     expect(resolveEditTarget(dataset, cellRef, settings)).toEqual({
       type: 'needsChoice',
