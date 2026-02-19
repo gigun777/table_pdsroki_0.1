@@ -1,6 +1,12 @@
 {
   "name": "@dilovodstvo/subrows",
   "version": "0.1.0",
+  "description": "Independent pure-logic subrows core for table engines",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "type": "module",
   "description": "Pure logical subrows model for table engines",
   "exports": {
@@ -10,11 +16,16 @@
     }
   },
   "files": [
+    "dist",
+    "README.md"
     "dist"
   ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --out-dir dist",
     "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "devDependencies": {
     "tsup": "^8.0.2",

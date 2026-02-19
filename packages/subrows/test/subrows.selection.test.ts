@@ -19,10 +19,6 @@ describe('resolveEditTarget', () => {
       order: ['g1', 'r1'],
     };
     const cellRef: CellRef = { rowId: 'r1', colKey: 'note' };
-<<<<<<< codex/create-npm-style-esm-package-@dilovodstvo/subrows-0yhm0y
-=======
-    const cellRef: CellRef = { rowId: 'r1', columnId: 'note' };
->>>>>>> main
 
     expect(resolveEditTarget(dataset, cellRef, settings)).toEqual({
       type: 'normalEdit',
@@ -39,10 +35,6 @@ describe('resolveEditTarget', () => {
       order: ['g1', 'r1'],
     };
     const cellRef: CellRef = { rowId: 'g1', colKey: 'amount' };
-<<<<<<< codex/create-npm-style-esm-package-@dilovodstvo/subrows-0yhm0y
-=======
-    const cellRef: CellRef = { rowId: 'g1', columnId: 'amount' };
->>>>>>> main
 
     expect(resolveEditTarget(dataset, cellRef, settings)).toEqual({
       type: 'normalEdit',
@@ -60,14 +52,40 @@ describe('resolveEditTarget', () => {
       order: ['g1', 'r1', 'r2'],
     };
     const cellRef: CellRef = { rowId: 'g1', colKey: 'amount' };
-<<<<<<< codex/create-npm-style-esm-package-@dilovodstvo/subrows-0yhm0y
-=======
-    const cellRef: CellRef = { rowId: 'g1', columnId: 'amount' };
->>>>>>> main
 
     expect(resolveEditTarget(dataset, cellRef, settings)).toEqual({
       type: 'needsChoice',
       subrowIds: ['r1', 'r2'],
     });
   });
+
+  it('returns canAddSubrow for a group without subrows on subrows-enabled column', () => {
+    const dataset: TableDataset = {
+      records: {
+        g1: { id: 'g1', kind: 'group', parentId: null, childrenIds: [], cells: { note: 'x' } },
+      },
+      order: ['g1'],
+    };
+    const cellRef: CellRef = { rowId: 'g1', colKey: 'amount' };
+
+    expect(resolveEditTarget(dataset, cellRef, settings)).toEqual({
+      type: 'canAddSubrow',
+    });
+  });
+
+  it('returns row itself for standalone row on subrows-enabled column', () => {
+    const dataset: TableDataset = {
+      records: {
+        r1: { id: 'r1', kind: 'row', parentId: null, cells: { amount: 10, note: 'x' } },
+      },
+      order: ['r1'],
+    };
+    const cellRef: CellRef = { rowId: 'r1', colKey: 'amount' };
+
+    expect(resolveEditTarget(dataset, cellRef, settings)).toEqual({
+      type: 'normalEdit',
+      targetRowId: 'r1',
+    });
+  });
+
 });
