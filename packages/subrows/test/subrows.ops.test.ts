@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { addSubrow, ensureGroup, removeSubrow } from '../src/core/ops';
+import { addSubrow, removeSubrow } from '../src/core/ops';
 import type { SubrowsSettings, TableDataset } from '../src/types';
 
 const settings: SubrowsSettings = {
@@ -61,6 +62,8 @@ describe('addSubrow', () => {
     expect(result.dataset.records[result.value].cells).toEqual({
       amount: '',
       qty: '',
+      amount: null,
+      qty: null,
     });
   });
 });
