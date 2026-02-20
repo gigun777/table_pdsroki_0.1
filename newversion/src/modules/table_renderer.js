@@ -258,6 +258,7 @@ export function createTableRendererModule(opts = {}) {
     mount.innerHTML = '';
     const cleanup = renderFn();
     if (typeof cleanup === 'function') return cleanup;
+    return () => {};
     return () => {
           cleanupTableToolbar();};
   }
@@ -815,8 +816,7 @@ if (isFirstCol) {
         location: 'main',
         order: 5,
         render: (mount, runtime) => {
-          if (typeof document === 'undefined') return () => {
-          cleanupTableToolbar();};
+          if (typeof document === 'undefined') return () => {};
           if (!runtime?.storage) runtime.storage = ctx.storage;
           if (!runtime?.sdo) runtime.sdo = runtime?.api?.sdo;
           return renderPanelFactory(mount, runtime);
