@@ -22,3 +22,5 @@ export {
   type SubrowsActionResult,
   type UiFlowState,
 } from './ui/flow';
+export { dispatchCellAction, type SubrowsUiHooks } from './ui/contracts';
+export { toUiFlowState, type UiFlowState } from './ui/flow';

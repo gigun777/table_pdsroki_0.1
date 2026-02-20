@@ -3,6 +3,7 @@ import { isSubrowsEnabled } from '../core/columns';
 import { resolveEditTarget } from '../core/selection';
 import type { SubrowsUI } from './contracts';
 import type { CellActionResult, CellRef, RowId, SubrowsSettings, TableDataset } from '../types';
+import type { CellActionResult } from '../types';
 
 export interface UiFlowState {
   shouldOpenChoice: boolean;
@@ -23,6 +24,7 @@ export interface SubrowsActionResult {
   editTargetRowId: RowId | null;
   highlightSubrows: RowId[];
   needsChoice: boolean;
+  editTargetRowId: string | null;
 }
 
 export function toUiFlowState(result: CellActionResult): UiFlowState {

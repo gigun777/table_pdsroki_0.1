@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>SubrowActionUI demo</title>
+  <link rel="stylesheet" href="./subrow_action_modal.css"/>
+</head>
+<body style="font-family:system-ui; padding:22px;">
+  <h2>SubrowActionUI demo</h2>
+  <p>Імітація кліку по підстрокі рядка в журналі.</p>
+
+  <button id="open" style="padding:10px 12px; border-radius:10px;">Натиснути на “підстроку”</button>
+
+  <!-- Modal markup -->
+  <!-- (paste once) -->
+  <div id="dvSubrowActionOverlay" class="dvsra-overlay" aria-hidden="true">
+    <div class="dvsra-modal" role="dialog" aria-modal="true" aria-labelledby="dvsraTitle">
+      <div class="dvsra-title" id="dvsraTitle">Оберіть дію</div>
+      <div class="dvsra-subtitle" id="dvsraSubtitle"></div>
+
+      <div class="dvsra-actions">
+        <button class="dvsra-btn dvsra-cancel" data-dvsra-cancel>Скасувати</button>
+        <button class="dvsra-btn dvsra-primary" id="dvsraEdit">Редагувати</button>
+        <button class="dvsra-btn dvsra-primary" id="dvsraAdd">Додати підстрочку</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./subrow_action_modal.js"></script>
+  <script>
+    document.getElementById("open").onclick = () => {
+      SubrowActionUI.open({
+        context: {
+          sheetKey: "Номенклатура",
+          rowId: "row_123",
+          rowIndex: 5,
+          rowTitle: "Номенклатура  Коли закінчено"
+        },
+        subrow: { id: "sr_1", title: "Підстрочка № 1" },
+        onEdit: (subrow, ctx) => {
+          console.log("EDIT", ctx, subrow);
+          alert("Редагувати: " + subrow.title);
+        },
+        onAdd: (ctx) => {
+          console.log("ADD", ctx);
+          alert("Додати підстрочку для рядка: " + ctx.rowId);
+        }
+      });
+    };
+  </script>
+</body>
+</html>
