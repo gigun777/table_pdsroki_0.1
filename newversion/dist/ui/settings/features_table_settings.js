@@ -1,10 +1,11 @@
 /**
  * Table settings feature module.
- * Contains sections migrated from legacy table settings modal navigation.
  */
 (function attachTableSettingsFeature(global) {
   const UI = (global.UI = global.UI || {});
   UI.settings = UI.settings || {};
+
+  const TABLE_SETTINGS_KEY = '@sdo/module-table-renderer:settings';
 
   function sectionContent(title, description) {
     return function render(container) {
@@ -15,6 +16,143 @@
       p.textContent = description;
       container.append(h, p);
     };
+  }
+
+  function getSettingsStorage() {
+    if (UI.storage && typeof UI.storage.get === 'function' && typeof UI.storage.set === 'function') {
+      return UI.storage;
+    }
+
+    if (UI.storage && typeof UI.storage.getItem === 'function' && typeof UI.storage.setItem === 'function') {
+      return {
+        get: async (key) => {
+          const raw = UI.storage.getItem(key);
+          if (raw == null) return null;
+          try { return JSON.parse(raw); } catch { return raw; }
+        },
+        set: async (key, value) => {
+          UI.storage.setItem(key, JSON.stringify(value));
+        }
+      };
+    }
+
+    return {
+      get: async (key) => {
+        const raw = global.localStorage?.getItem?.(key);
+        if (raw == null) return null;
+        try { return JSON.parse(raw); } catch { return raw; }
+      },
+      set: async (key, value) => {
+        global.localStorage?.setItem?.(key, JSON.stringify(value));
+      }
+    };
+  }
+
+  async function readTableSettings() {
+    const storage = getSettingsStorage();
+    try {
+      const value = await storage.get(TABLE_SETTINGS_KEY);
+      return value ?? { columns: { visibility: {} }, subrows: { columnsSubrowsEnabled: {} } };
+    } catch {
+      return { columns: { visibility: {} }, subrows: { columnsSubrowsEnabled: {} } };
+    }
+  }
+
+  function createColumnsSettingsNode(settings, columns, onChange) {
+    const wrapper = document.createElement('div');
+    wrapper.style.display = 'grid';
+    wrapper.style.gap = '8px';
+
+    for (const column of columns) {
+      const row = document.createElement('label');
+      row.style.display = 'flex';
+      row.style.alignItems = 'center';
+      row.style.gap = '8px';
+
+      const subrows = document.createElement('input');
+      subrows.type = 'checkbox';
+      subrows.checked = settings.subrows?.columnsSubrowsEnabled?.[column.key] === true;
+      subrows.addEventListener('change', () => {
+        const next = {
+          ...settings,
+          subrows: {
+            ...(settings.subrows ?? { columnsSubrowsEnabled: {} }),
+            columnsSubrowsEnabled: {
+              ...((settings.subrows ?? {}).columnsSubrowsEnabled ?? {}),
+              [column.key]: subrows.checked
+            }
+          }
+        };
+        onChange(next);
+      });
+
+      const text = document.createElement('span');
+      text.textContent = `${column.label} (${column.key})`;
+      row.append(subrows, text);
+      wrapper.append(row);
+    }
+
+    return wrapper;
+  }
+
+  function renderColumnsSettingsSection(container) {
+    container.innerHTML = '';
+
+    const header = document.createElement('h4');
+    header.textContent = 'Колонки';
+    const desc = document.createElement('p');
+    desc.textContent = 'Відкрийте модалку налаштувань і увімкніть підстроки для потрібних колонок.';
+    const openBtn = document.createElement('button');
+    openBtn.textContent = 'Налаштувати колонки';
+
+    container.append(header, desc, openBtn);
+
+    openBtn.addEventListener('click', async () => {
+      let settings = await readTableSettings();
+      const state = UI.sdo?.getState?.() ?? { journals: [], activeJournalId: null };
+      const activeJournal = (state.journals ?? []).find((j) => j.id === state.activeJournalId) ?? null;
+      const templateId = activeJournal?.templateId;
+      const template = templateId ? await UI.sdo?.journalTemplates?.getTemplate?.(templateId) : null;
+      const columns = template?.columns ?? [];
+
+      if (!UI.modal?.open) {
+        UI.toast?.show?.('Модалка недоступна в цьому середовищі');
+        return;
+      }
+
+      const body = document.createElement('div');
+      body.style.display = 'grid';
+      body.style.gap = '12px';
+
+      const listWrap = document.createElement('div');
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = 'Зберегти';
+
+      const rerenderList = () => {
+        listWrap.innerHTML = '';
+        listWrap.append(createColumnsSettingsNode(settings, columns, (next) => {
+          settings = next;
+          rerenderList();
+        }));
+      };
+      rerenderList();
+
+      body.append(listWrap, saveBtn);
+
+      const modalId = UI.modal.open({
+        title: 'Налаштування колонок',
+        contentNode: body,
+        closeOnOverlay: true,
+        escClose: true
+      });
+
+      saveBtn.addEventListener('click', async () => {
+        const storage = getSettingsStorage();
+        await storage.set(TABLE_SETTINGS_KEY, settings);
+        UI.toast?.show?.('Налаштування колонок збережено');
+        UI.modal.close(modalId);
+      });
+    });
   }
 
   function createTableSettingsFeature() {
@@ -34,7 +172,7 @@
           id: 'columns',
           title: 'Колонки',
           order: 20,
-          renderContent: sectionContent('Колонки', 'Налаштування видимості та порядку колонок.'),
+          renderContent: renderColumnsSettingsSection,
           onConfirm: ({ draft }) => draft
         },
         {
@@ -48,14 +186,7 @@
           id: 'transfer',
           title: 'Перенесення',
           order: 40,
-          renderContent: function renderTransferSection(container){
-            container.innerHTML='';
-            const h=document.createElement('h3'); h.textContent='Перенесення';
-            const p=document.createElement('p'); p.textContent='Шаблони перенесення між журналами та правила формування рядка.';
-            const btn=document.createElement('button'); btn.textContent='Відкрити налаштування перенесення';
-            btn.onclick=()=>{ const tr=(globalThis.UI?.transfer); if(tr?.openSettings) tr.openSettings(); else globalThis.UI?.toast?.warning?.('Transfer UI не готовий'); };
-            container.append(h,p,btn);
-          },
+          renderContent: sectionContent('Перенесення', 'Параметри перенесення даних між таблицями.'),
           onConfirm: ({ draft }) => draft
         }
       ]
