@@ -156,16 +156,18 @@ function flattenRows({ index, settings, editState, visibleSet, sortIds }) {
     const hasChildren = childIds.length > 0;
     const isExpanded = hasChildren && settings.expandedRowIds.has(rowId);
 
-    rows.push({
-      rowId,
-      record,
-      depth,
-      isParent: hasChildren,
-      hasChildren,
-      isExpanded,
-      isSelected: settings.selectedRowIds.has(rowId),
-      isEditing: editState?.rowId === rowId ? editState : null
-    });
+    if (record.kind !== 'group') {
+      rows.push({
+        rowId,
+        record,
+        depth,
+        isParent: hasChildren,
+        hasChildren,
+        isExpanded,
+        isSelected: settings.selectedRowIds.has(rowId),
+        isEditing: editState?.rowId === rowId ? editState : null
+      });
+    }
 
     if (!isExpanded) return;
     for (const childId of childIds) walk(childId, depth + 1);
@@ -299,6 +301,18 @@ export function createTableEngine({ schema, settings = {} }) {
         fmt: {},
         childrenIds: []
       };
+    },
+    addRow(values = {}, inputDataset = dataset) {
+      const validation = api.validateAddForm(values);
+      if (!validation.valid) {
+        return { ok: false, errors: validation.errors, dataset: inputDataset };
+      }
+      const record = api.buildRecordFromForm(values);
+      const nextDataset = {
+        ...inputDataset,
+        records: [...(inputDataset.records ?? []), record]
+      };
+      return { ok: true, record, dataset: nextDataset };
     },
     compute() {
       const columns = buildColumns(normalizedSchema, normalizedSettings);

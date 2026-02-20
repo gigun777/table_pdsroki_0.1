@@ -399,3 +399,4 @@ export { createTableFormatterModule, formatCell, parseInput } from './modules/ta
 export { createTableRendererModule, getRenderableCells } from './modules/table_renderer.js';
 export { createJournalStore } from './stores/journal_store.js';
 export { createJournalTemplatesContainer } from './stores/journal_templates_container.js';
+export { createTableSubrowsBridge } from './modules/table_subrows_bridge.js';

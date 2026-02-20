@@ -27,14 +27,11 @@ async function adapterSet(storageAdapter, key, value) {
 
 export async function loadTemplates(storageAdapter) {
   const raw = (await adapterGet(storageAdapter, STORAGE_KEY)) ?? [];
-export async function loadTemplates(storageAdapter) {
-  const raw = (await storageAdapter.get(STORAGE_KEY)) ?? [];
   return Array.isArray(raw) ? raw : [];
 }
 
 export async function saveTemplates(storageAdapter, templates) {
   await adapterSet(storageAdapter, STORAGE_KEY, Array.isArray(templates) ? templates : []);
-  await storageAdapter.set(STORAGE_KEY, Array.isArray(templates) ? templates : []);
 }
 
 export function createTemplateDraft() {
