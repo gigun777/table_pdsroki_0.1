@@ -100,3 +100,21 @@ test('inline edit and add row form API', () => {
   assert.equal(typeof record.id, 'string');
   assert.equal(record.cells.name, 'N');
 });
+
+test('table engine hides records with kind=group from visible rows', () => {
+  const engine = createTableEngine({
+    schema,
+    settings: { columns: { order: null, visibility: {}, widths: {} }, expandedRowIds: ['g1'], selectedRowIds: [] }
+  });
+
+  engine.setDataset({
+    records: [
+      { id: 'g1', kind: 'group', cells: { name: 'Group' }, childrenIds: ['r1'] },
+      { id: 'r1', kind: 'row', parentId: 'g1', cells: { name: 'Child' } }
+    ],
+    merges: []
+  });
+
+  const view = engine.compute();
+  assert.deepEqual(view.rows.map((x) => x.rowId), ['r1']);
+});
