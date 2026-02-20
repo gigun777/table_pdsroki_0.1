@@ -52,6 +52,9 @@
     const storage = getSettingsStorage();
     try {
       const value = await storage.get(TABLE_SETTINGS_KEY);
+  async function readTableSettings() {
+    try {
+      const value = await UI.storage?.get(TABLE_SETTINGS_KEY);
       return value ?? { columns: { visibility: {} }, subrows: { columnsSubrowsEnabled: {} } };
     } catch {
       return { columns: { visibility: {} }, subrows: { columnsSubrowsEnabled: {} } };
@@ -121,6 +124,7 @@
     header.textContent = 'Колонки';
     const desc = document.createElement('p');
     desc.textContent = 'Оберіть журнал та налаштуйте колонки для підстрок.';
+    desc.textContent = 'Відкрийте модалку налаштувань і увімкніть підстроки для потрібних колонок.';
     const openBtn = document.createElement('button');
     openBtn.textContent = 'Налаштувати колонки';
 
@@ -130,6 +134,33 @@
       let settings = await readTableSettings();
       const { journals, activeJournalId } = getJournalsState();
       let selectedJournalId = activeJournalId ?? journals[0]?.id ?? null;
+  function renderColumnsSettingsSection(container) {
+    container.innerHTML = '';
+    const header = document.createElement('h4');
+    header.textContent = 'Колонки';
+    const desc = document.createElement('p');
+    desc.textContent = 'Увімкніть підстроки для потрібних колонок.';
+    container.append(header, desc);
+
+    const list = document.createElement('div');
+    list.style.display = 'grid';
+    list.style.gap = '8px';
+    container.append(list);
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Зберегти';
+    saveBtn.style.marginTop = '12px';
+    container.append(saveBtn);
+
+    let settings = { columns: { visibility: {} }, subrows: { columnsSubrowsEnabled: {} } };
+
+    const run = async () => {
+      settings = await readTableSettings();
+      const state = UI.sdo?.getState?.() ?? { journals: [], activeJournalId: null };
+      const activeJournal = (state.journals ?? []).find((j) => j.id === state.activeJournalId) ?? null;
+      const templateId = activeJournal?.templateId;
+      const template = templateId ? await UI.sdo?.journalTemplates?.getTemplate?.(templateId) : null;
+      const columns = template?.columns ?? [];
 
       if (!UI.modal?.open) {
         UI.toast?.show?.('Модалка недоступна в цьому середовищі');
@@ -159,6 +190,8 @@
           listWrap.append(empty);
           return;
         }
+      const rerenderList = () => {
+        listWrap.innerHTML = '';
         listWrap.append(createColumnsSettingsNode(settings, columns, (next) => {
           settings = next;
           rerenderList();
@@ -172,6 +205,9 @@
 
       await rerenderList();
       body.append('Обрати журнал', journalSelect, listWrap, saveBtn);
+      rerenderList();
+
+      body.append(listWrap, saveBtn);
 
       const modalId = UI.modal.open({
         title: 'Налаштування колонок',
@@ -234,6 +270,41 @@
       }
     };
 
+      list.innerHTML = '';
+      for (const column of columns) {
+        const row = document.createElement('label');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '8px';
+
+        const subrows = document.createElement('input');
+        subrows.type = 'checkbox';
+        subrows.checked = settings.subrows?.columnsSubrowsEnabled?.[column.key] === true;
+        subrows.addEventListener('change', () => {
+          settings = {
+            ...settings,
+            subrows: {
+              ...(settings.subrows ?? { columnsSubrowsEnabled: {} }),
+              columnsSubrowsEnabled: {
+                ...((settings.subrows ?? {}).columnsSubrowsEnabled ?? {}),
+                [column.key]: subrows.checked
+              }
+            }
+          };
+        });
+
+        const text = document.createElement('span');
+        text.textContent = `${column.label} (${column.key})`;
+        row.append(subrows, text);
+        list.append(row);
+      }
+    };
+
+    saveBtn.addEventListener('click', async () => {
+      await UI.storage?.set(TABLE_SETTINGS_KEY, settings);
+      UI.toast?.show?.('Налаштування колонок збережено');
+    });
+
     run();
   }
 
@@ -269,6 +340,7 @@
           title: 'Перенесення',
           order: 40,
           renderContent: renderTransferSection,
+          renderContent: sectionContent('Перенесення', 'Параметри перенесення даних між таблицями.'),
           onConfirm: ({ draft }) => draft
         }
       ]
