@@ -52,6 +52,9 @@
     const storage = getSettingsStorage();
     try {
       const value = await storage.get(TABLE_SETTINGS_KEY);
+  async function readTableSettings() {
+    try {
+      const value = await UI.storage?.get(TABLE_SETTINGS_KEY);
       return value ?? { columns: { visibility: {} }, subrows: { columnsSubrowsEnabled: {} } };
     } catch {
       return { columns: { visibility: {} }, subrows: { columnsSubrowsEnabled: {} } };
@@ -109,6 +112,28 @@
 
     openBtn.addEventListener('click', async () => {
       let settings = await readTableSettings();
+  function renderColumnsSettingsSection(container) {
+    container.innerHTML = '';
+    const header = document.createElement('h4');
+    header.textContent = 'Колонки';
+    const desc = document.createElement('p');
+    desc.textContent = 'Увімкніть підстроки для потрібних колонок.';
+    container.append(header, desc);
+
+    const list = document.createElement('div');
+    list.style.display = 'grid';
+    list.style.gap = '8px';
+    container.append(list);
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Зберегти';
+    saveBtn.style.marginTop = '12px';
+    container.append(saveBtn);
+
+    let settings = { columns: { visibility: {} }, subrows: { columnsSubrowsEnabled: {} } };
+
+    const run = async () => {
+      settings = await readTableSettings();
       const state = UI.sdo?.getState?.() ?? { journals: [], activeJournalId: null };
       const activeJournal = (state.journals ?? []).find((j) => j.id === state.activeJournalId) ?? null;
       const templateId = activeJournal?.templateId;
@@ -153,6 +178,42 @@
         UI.modal.close(modalId);
       });
     });
+      list.innerHTML = '';
+      for (const column of columns) {
+        const row = document.createElement('label');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '8px';
+
+        const subrows = document.createElement('input');
+        subrows.type = 'checkbox';
+        subrows.checked = settings.subrows?.columnsSubrowsEnabled?.[column.key] === true;
+        subrows.addEventListener('change', () => {
+          settings = {
+            ...settings,
+            subrows: {
+              ...(settings.subrows ?? { columnsSubrowsEnabled: {} }),
+              columnsSubrowsEnabled: {
+                ...((settings.subrows ?? {}).columnsSubrowsEnabled ?? {}),
+                [column.key]: subrows.checked
+              }
+            }
+          };
+        });
+
+        const text = document.createElement('span');
+        text.textContent = `${column.label} (${column.key})`;
+        row.append(subrows, text);
+        list.append(row);
+      }
+    };
+
+    saveBtn.addEventListener('click', async () => {
+      await UI.storage?.set(TABLE_SETTINGS_KEY, settings);
+      UI.toast?.show?.('Налаштування колонок збережено');
+    });
+
+    run();
   }
 
   function createTableSettingsFeature() {

@@ -259,6 +259,111 @@ export function createTableRendererModule(opts = {}) {
     const cleanup = renderFn();
     if (typeof cleanup === 'function') return cleanup;
     return () => {};
+    return () => {
+          cleanupTableToolbar();};
+  }
+
+  function createModal() {
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.inset = '0';
+    overlay.style.background = 'rgba(0,0,0,.35)';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+
+    const modal = document.createElement('div');
+    modal.style.background = '#fff';
+    modal.style.padding = '12px';
+    modal.style.borderRadius = '8px';
+    modal.style.minWidth = '360px';
+
+    overlay.append(modal);
+    return { overlay, modal };
+  }
+
+  function columnSettingsUI(host, schema, settings, onChange) {
+    const wrap = document.createElement('div');
+    wrap.style.display = 'flex';
+    wrap.style.gap = '8px';
+    wrap.style.flexWrap = 'wrap';
+
+    const schemaKeys = (schema && Array.isArray(schema.fields)) ? schema.fields.map((f) => f.key) : [];
+    const ordered = (settings.columns && Array.isArray(settings.columns.order) && settings.columns.order.length)
+      ? settings.columns.order
+      : schemaKeys;
+
+    for (const key of ordered) {
+      const col = document.createElement('div');
+      col.style.border = '1px solid #ddd';
+      col.style.padding = '4px';
+
+      const label = document.createElement('span');
+      label.textContent = key;
+      label.style.marginRight = '6px';
+
+      const visible = document.createElement('input');
+      visible.type = 'checkbox';
+      visible.checked = settings.columns?.visibility?.[key] !== false;
+      visible.addEventListener('change', () => {
+        onChange(applyColumnSettings(settings, {
+          visibility: { ...(settings.columns?.visibility ?? {}), [key]: visible.checked }
+        }));
+      });
+
+      const subrows = document.createElement('input');
+      subrows.type = 'checkbox';
+      subrows.title = 'Підстроки';
+      subrows.checked = settings.subrows?.columnsSubrowsEnabled?.[key] === true;
+      subrows.addEventListener('change', () => {
+        onChange({
+          ...settings,
+          subrows: {
+            ...(settings.subrows ?? { columnsSubrowsEnabled: {} }),
+            columnsSubrowsEnabled: {
+              ...((settings.subrows ?? {}).columnsSubrowsEnabled ?? {}),
+              [key]: subrows.checked
+            }
+          }
+        });
+      });
+
+      const widthInput = document.createElement('input');
+      widthInput.type = 'number';
+      widthInput.min = '40';
+      widthInput.style.width = '72px';
+      widthInput.value = settings.columns?.widths?.[key] ?? '';
+      widthInput.addEventListener('change', () => {
+        onChange(applyColumnSettings(settings, {
+          widths: { ...(settings.columns?.widths ?? {}), [key]: Number(widthInput.value) || null }
+        }));
+      });
+
+      const left = document.createElement('button');
+      left.textContent = '←';
+      left.addEventListener('click', () => {
+        const idx = ordered.indexOf(key);
+        if (idx <= 0) return;
+        const nextOrder = [...ordered];
+        [nextOrder[idx - 1], nextOrder[idx]] = [nextOrder[idx], nextOrder[idx - 1]];
+        onChange(applyColumnSettings(settings, { order: nextOrder }));
+      });
+
+      const right = document.createElement('button');
+      right.textContent = '→';
+      right.addEventListener('click', () => {
+        const idx = ordered.indexOf(key);
+        if (idx < 0 || idx >= ordered.length - 1) return;
+        const nextOrder = [...ordered];
+        [nextOrder[idx], nextOrder[idx + 1]] = [nextOrder[idx + 1], nextOrder[idx]];
+        onChange(applyColumnSettings(settings, { order: nextOrder }));
+      });
+
+      col.append(label, visible, subrows, widthInput, left, right);
+      wrap.append(col);
+    }
+
+    host.append(wrap);
   }
 
   async function renderPanelFactory(mount, runtime) {
