@@ -1,10 +1,11 @@
 /**
  * Table settings feature module.
- * Contains sections migrated from legacy table settings modal navigation.
  */
 (function attachTableSettingsFeature(global) {
   const UI = (global.UI = global.UI || {});
   UI.settings = UI.settings || {};
+
+  const TABLE_SETTINGS_KEY = '@sdo/module-table-renderer:settings';
 
   function sectionContent(title, description) {
     return function render(container) {
@@ -17,71 +18,79 @@
     };
   }
 
-  function transferSectionContent() {
-    return function render(container) {
-      container.innerHTML = '';
-      const status = document.createElement('p');
-      status.textContent = 'Завантаження конструктора перенесень...';
-      container.append(status);
+  async function readTableSettings() {
+    try {
+      const value = await UI.storage?.get(TABLE_SETTINGS_KEY);
+      return value ?? { columns: { visibility: {} }, subrows: { columnsSubrowsEnabled: {} } };
+    } catch {
+      return { columns: { visibility: {} }, subrows: { columnsSubrowsEnabled: {} } };
+    }
+  }
 
-      const run = async () => {
-        try {
-          const mod = await import('../../../../packages/transfer/src/index.js');
-          const mod = await import('../../../../packages/transfer-ui/src/index.js');
-          const state = UI.sdo?.getState?.() || { journals: [] };
-          const tableStore = UI.sdo?.api?.tableStore;
-          const journalTemplates = UI.sdo?.journalTemplates || UI.sdo?.api?.journalTemplates;
+  function renderColumnsSettingsSection(container) {
+    container.innerHTML = '';
+    const header = document.createElement('h4');
+    header.textContent = 'Колонки';
+    const desc = document.createElement('p');
+    desc.textContent = 'Увімкніть підстроки для потрібних колонок.';
+    container.append(header, desc);
 
-          const transferStorage = mod.createTransferStorage({
-            storage: {
-          const transferUI = mod.createTransferUI({
-            storageAdapter: {
-              get: async (key) => {
-                const raw = UI.storage?.getItem?.(key);
-                try { return JSON.parse(raw); } catch { return raw; }
-              },
-              set: async (key, value) => {
-                UI.storage?.setItem?.(key, JSON.stringify(value));
+    const list = document.createElement('div');
+    list.style.display = 'grid';
+    list.style.gap = '8px';
+    container.append(list);
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Зберегти';
+    saveBtn.style.marginTop = '12px';
+    container.append(saveBtn);
+
+    let settings = { columns: { visibility: {} }, subrows: { columnsSubrowsEnabled: {} } };
+
+    const run = async () => {
+      settings = await readTableSettings();
+      const state = UI.sdo?.getState?.() ?? { journals: [], activeJournalId: null };
+      const activeJournal = (state.journals ?? []).find((j) => j.id === state.activeJournalId) ?? null;
+      const templateId = activeJournal?.templateId;
+      const template = templateId ? await UI.sdo?.journalTemplates?.getTemplate?.(templateId) : null;
+      const columns = template?.columns ?? [];
+
+      list.innerHTML = '';
+      for (const column of columns) {
+        const row = document.createElement('label');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '8px';
+
+        const subrows = document.createElement('input');
+        subrows.type = 'checkbox';
+        subrows.checked = settings.subrows?.columnsSubrowsEnabled?.[column.key] === true;
+        subrows.addEventListener('change', () => {
+          settings = {
+            ...settings,
+            subrows: {
+              ...(settings.subrows ?? { columnsSubrowsEnabled: {} }),
+              columnsSubrowsEnabled: {
+                ...((settings.subrows ?? {}).columnsSubrowsEnabled ?? {}),
+                [column.key]: subrows.checked
               }
             }
-          });
+          };
+        });
 
-          const journals = mod.createJournalsAdapter({
-            },
-            loadDataset: async (journalId) => tableStore?.getDataset?.(journalId) ?? { journalId, records: [] },
-            saveDataset: async (journalId, dataset) => tableStore?.upsertRecords?.(journalId, dataset.records ?? [], 'replace'),
-            getSchema: async (journalId) => {
-              const journal = (UI.sdo?.getState?.().journals ?? []).find((item) => item.id === journalId);
-              const template = journal?.templateId ? await journalTemplates?.getTemplate?.(journal.templateId) : null;
-              return {
-                journalId,
-                fields: (template?.columns ?? []).map((column) => ({ id: column.key, title: column.label, type: 'text' }))
-              };
-            },
-            listJournals: async () => (UI.sdo?.getState?.().journals ?? []).map((journal) => ({ id: journal.id, title: journal.title }))
-          });
-
-          const core = mod.createTransferCore({ storage: transferStorage, journals, logger: console });
-          const transferUI = mod.createTransferUI({
-            core,
-            journals,
-            ui: {
-              openModal: ({ title, contentNode }) => UI.modal.open({ title, contentNode, closeOnOverlay: true }),
-              closeModal: (id) => UI.modal.close(id)
-            }
-          });
-
-          status.remove();
-          await transferUI.openSettings(container);
-          status.remove();
-          await transferUI.renderTransferSettingsSection(container);
-        } catch (error) {
-          status.textContent = `Помилка завантаження перенесень: ${error.message}`;
-        }
-      };
-
-      run();
+        const text = document.createElement('span');
+        text.textContent = `${column.label} (${column.key})`;
+        row.append(subrows, text);
+        list.append(row);
+      }
     };
+
+    saveBtn.addEventListener('click', async () => {
+      await UI.storage?.set(TABLE_SETTINGS_KEY, settings);
+      UI.toast?.show?.('Налаштування колонок збережено');
+    });
+
+    run();
   }
 
   function createTableSettingsFeature() {
@@ -101,7 +110,7 @@
           id: 'columns',
           title: 'Колонки',
           order: 20,
-          renderContent: sectionContent('Колонки', 'Налаштування видимості та порядку колонок.'),
+          renderContent: renderColumnsSettingsSection,
           onConfirm: ({ draft }) => draft
         },
         {
@@ -113,9 +122,9 @@
         },
         {
           id: 'transfer',
-          title: 'Перенесення → Шаблони',
+          title: 'Перенесення',
           order: 40,
-          renderContent: transferSectionContent(),
+          renderContent: sectionContent('Перенесення', 'Параметри перенесення даних між таблицями.'),
           onConfirm: ({ draft }) => draft
         }
       ]
