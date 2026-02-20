@@ -302,6 +302,18 @@ export function createTableEngine({ schema, settings = {} }) {
         childrenIds: []
       };
     },
+    addRow(values = {}, inputDataset = dataset) {
+      const validation = api.validateAddForm(values);
+      if (!validation.valid) {
+        return { ok: false, errors: validation.errors, dataset: inputDataset };
+      }
+      const record = api.buildRecordFromForm(values);
+      const nextDataset = {
+        ...inputDataset,
+        records: [...(inputDataset.records ?? []), record]
+      };
+      return { ok: true, record, dataset: nextDataset };
+    },
     compute() {
       const columns = buildColumns(normalizedSchema, normalizedSettings);
       const { visibleSet, sortIds } = collectVisibleIds({

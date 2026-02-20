@@ -678,17 +678,18 @@ if (isFirstCol) {
           }
         };
 
+        async function openAddRowFlow() {
         addBtn.addEventListener('click', async () => {
           if (!engine) {
             await refreshTable();
             return;
           }
+
           const model = engine.getAddFormModel();
 
-          // Prefer centralized UI.form + UI.modal
           if (window.UI?.form?.create && window.UI?.modal?.open) {
             const schema = model.map((f) => ({
-              id: f.id,
+              id: f.key,
               label: f.label,
               type: f.type || 'text',
               required: !!f.required,
@@ -700,12 +701,10 @@ if (isFirstCol) {
             const formNode = window.UI.form.create({
               schema,
               onSubmit: async (values) => {
-                const validation = engine.validateAddForm(values);
-                if (!validation.valid) return;
-                const record = engine.buildRecordFromForm(values);
-                const dataset = await loadDataset(runtime, runtime.storage, currentJournalId);
-                const nextDataset = { ...dataset, records: [...dataset.records, record] };
-                await saveDataset(runtime, runtime.storage, currentJournalId, nextDataset);
+                const currentDataset = await loadDataset(runtime, runtime.storage, currentJournalId);
+                const addResult = engine.addRow(values, currentDataset);
+                if (!addResult.ok) return;
+                await saveDataset(runtime, runtime.storage, currentJournalId, addResult.dataset);
                 window.UI.modal.close(modalId);
                 await refreshTable();
               },
@@ -721,20 +720,25 @@ if (isFirstCol) {
             return;
           }
 
-          // Fallback to legacy modal
-          openAddModal({
-            fields: model,
-            onSubmit: async (values) => {
-              const validation = engine.validateAddForm(values);
-              if (!validation.valid) return;
-              const record = engine.buildRecordFromForm(values);
-              const dataset = await loadDataset(runtime, runtime.storage, currentJournalId);
-              const nextDataset = { ...dataset, records: [...dataset.records, record] };
-              await saveDataset(runtime, runtime.storage, currentJournalId, nextDataset);
-              await refreshTable();
-            },
-            onCancel: () => {}
-          });
+          const values = {};
+          for (const field of model) {
+            const value = window.prompt(`Введіть ${field.label}`, field.default ?? '');
+            if (value === null) return;
+            values[field.key] = value;
+          }
+
+          const currentDataset = await loadDataset(runtime, runtime.storage, currentJournalId);
+          const addResult = engine.addRow(values, currentDataset);
+          if (!addResult.ok) {
+            window.UI?.toast?.show?.('Не вдалося додати запис');
+            return;
+          }
+          await saveDataset(runtime, runtime.storage, currentJournalId, addResult.dataset);
+          await refreshTable();
+        }
+
+        addBtn.addEventListener('click', async () => {
+          await openAddRowFlow();
         });
 
 
