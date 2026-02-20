@@ -1,5 +1,7 @@
 import { createTableEngine } from './table_engine.js';
 import { formatCell as defaultFormatCell, parseInput as defaultParseInput } from './table_formatter.js';
+import { createTableSubrowsBridge } from './table_subrows_bridge.js';
+import * as builtInSubrowsApi from '../../packages/subrows/dist/index.js';
 
 function cellKey(rowId, colKey) {
   return `${rowId}:${colKey}`;
@@ -56,18 +58,42 @@ function buildHeaderTitle(runtime) {
   return journal ? `Таблиця: ${journal.title}` : 'Таблиця';
 }
 
+function isSubrowsEnabled(settings, colKey) {
+  return settings?.subrows?.columnsSubrowsEnabled?.[colKey] === true;
+}
+
+function createSubrowsUiAdapter() {
+  return {
+    async askCellAction() {
+      const add = window.confirm('Додати нову підстроку для цієї клітинки? Натисніть Скасувати для редагування існуючої.');
+      return add ? 'addSubrow' : 'editExisting';
+    },
+    async pickSubrow(opts) {
+      const ids = (opts?.items ?? []).map((i) => i.id);
+      if (ids.length === 0) return null;
+      const chosen = window.prompt(`Оберіть ID підстроки: ${ids.join(', ')}`, ids[0]);
+      return ids.includes(chosen) ? chosen : null;
+    },
+    toast(msg) {
+      if (window.UI?.toast?.show) window.UI.toast.show(msg);
+    }
+  };
+}
+
 export function createTableRendererModule(opts = {}) {
   const {
     // legacy/fallback single-dataset key (used only when tableStore module is not present)
     datasetKey = '@sdo/module-table-renderer:dataset',
-    settingsKey = '@sdo/module-table-renderer:settings'
+    settingsKey = '@sdo/module-table-renderer:settings',
+    subrowsApi = builtInSubrowsApi
   } = opts;
   const initialSettings = {
     columns: { order: null, visibility: {}, widths: {} },
     sort: null,
     filter: { global: '' },
     expandedRowIds: [],
-    selectedRowIds: []
+    selectedRowIds: [],
+    subrows: { columnsSubrowsEnabled: {} }
   };
 
   let engine = null;
@@ -366,6 +392,23 @@ export function createTableRendererModule(opts = {}) {
         }));
       });
 
+      const subrows = document.createElement('input');
+      subrows.type = 'checkbox';
+      subrows.title = 'Підстроки';
+      subrows.checked = settings.subrows?.columnsSubrowsEnabled?.[key] === true;
+      subrows.addEventListener('change', () => {
+        onChange({
+          ...settings,
+          subrows: {
+            ...(settings.subrows ?? { columnsSubrowsEnabled: {} }),
+            columnsSubrowsEnabled: {
+              ...((settings.subrows ?? {}).columnsSubrowsEnabled ?? {}),
+              [key]: subrows.checked
+            }
+          }
+        });
+      });
+
       const widthInput = document.createElement('input');
       widthInput.type = 'number';
       widthInput.min = '40';
@@ -397,7 +440,7 @@ export function createTableRendererModule(opts = {}) {
         onChange(applyColumnSettings(settings, { order: nextOrder }));
       });
 
-      col.append(label, visible, widthInput, left, right);
+      col.append(label, visible, subrows, widthInput, left, right);
       wrap.append(col);
     }
 
@@ -469,6 +512,7 @@ export function createTableRendererModule(opts = {}) {
 
         const refreshTable = async () => {
           const settings = await loadSettings(runtime.storage);
+          const subrowsBridge = createTableSubrowsBridge(subrowsApi, settings.subrows ?? { columnsSubrowsEnabled: {} });
           const resolved = await resolveSchema(runtime);
           currentJournalId = resolved.state?.activeJournalId ?? null;
           const dataset = await loadDataset(runtime, runtime.storage, currentJournalId);
@@ -606,23 +650,49 @@ if (isFirstCol) {
                 td.prepend(expander);
               }
 
-              td.addEventListener('click', () => {
+              td.addEventListener('click', async () => {
                 const spanInfo = view.cellSpanMap.get(cellKey(row.rowId, cell.colKey));
                 if (spanInfo?.coveredBy) return;
-                engine.beginEdit(row.rowId, cell.colKey);
+
+                let editRowId = row.rowId;
+                let currentDataset = await loadDataset(runtime, runtime.storage, currentJournalId);
+
+                if (isSubrowsEnabled(settings, cell.colKey)) {
+                  const flow = await subrowsBridge.handleCellClickSubrowsFlow({
+                    dataset: currentDataset,
+                    cellRef: { rowId: row.rowId, colKey: cell.colKey },
+                    settings: settings.subrows ?? { columnsSubrowsEnabled: {} },
+                    ui: createSubrowsUiAdapter()
+                  });
+
+                  if (flow.dataset) {
+                    await saveDataset(runtime, runtime.storage, currentJournalId, flow.dataset);
+                    currentDataset = flow.dataset;
+                  }
+
+                  if (!flow.editTargetRowId) {
+                    await refreshTable();
+                    return;
+                  }
+
+                  editRowId = flow.editTargetRowId;
+                }
+
+                const editRecord = (currentDataset.records ?? []).find((r) => r.id === editRowId) ?? row.record;
+                engine.beginEdit(editRowId, cell.colKey);
                 const inputModel = formatted.editor ?? { type: 'text', props: {} };
                 const input = document.createElement('input');
                 input.type = inputModel.type === 'number' ? 'number' : inputModel.type === 'date' ? 'date' : 'text';
-                input.value = row.record.cells?.[cell.colKey] ?? '';
+                input.value = editRecord.cells?.[cell.colKey] ?? '';
                 td.innerHTML = '';
                 td.append(input);
                 input.focus();
 
                 const save = async () => {
                   const parsed = defaultParseInput(input.value, schema.fields.find((f) => f.key === cell.colKey) ?? {});
-                  const patch = engine.applyEdit(row.rowId, cell.colKey, parsed.v);
-                  const currentDataset = await loadDataset(runtime, runtime.storage, currentJournalId);
-                  const nextDataset = updateDatasetWithPatch(currentDataset, patch);
+                  const patch = engine.applyEdit(editRowId, cell.colKey, parsed.v);
+                  const dsNow = await loadDataset(runtime, runtime.storage, currentJournalId);
+                  const nextDataset = updateDatasetWithPatch(dsNow, patch);
                   await saveDataset(runtime, runtime.storage, currentJournalId, nextDataset);
                   await refreshTable();
                 };
