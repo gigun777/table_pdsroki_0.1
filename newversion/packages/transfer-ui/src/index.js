@@ -6,7 +6,6 @@ import {
   exportTemplatesBackup,
   importTemplatesBackup
 } from './storage/templates_store.js';
-import { loadTemplates, saveTemplates } from './storage/templates_store.js';
 
 export function createTransferUI(api) {
   return {
@@ -28,11 +27,3 @@ export {
   exportTemplatesBackup,
   importTemplatesBackup
 };
-    saveTemplates: (templates) => saveTemplates(api.storageAdapter, templates)
-  };
-}
-
-export { renderTransferSettingsSection, openRunTransferModal, loadTemplates, saveTemplates };
-export function notImplementedYet() {
-  return "@sedo/transfer-ui will be implemented in next stage";
-}

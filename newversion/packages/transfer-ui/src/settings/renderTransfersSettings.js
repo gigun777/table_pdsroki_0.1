@@ -5,7 +5,6 @@ import {
   exportTemplatesBackup,
   importTemplatesBackup
 } from '../storage/templates_store.js';
-import { createTemplateDraft, loadTemplates, saveTemplates } from '../storage/templates_store.js';
 import { openTemplateEditorModal } from './templateEditorModal.js';
 
 export async function renderTransferSettingsSection(container, api) {
@@ -43,11 +42,8 @@ export async function renderTransferSettingsSection(container, api) {
     exportBtn.textContent = 'Backup шаблонів';
     exportBtn.onclick = async () => {
       const json = await exportTemplatesBackup(storageAdapter);
-      if (window.UI?.modal?.alert) {
-        window.UI.modal.alert(json, { title: 'Transfer templates backup JSON' });
-      } else {
-        window.prompt('Скопіюйте backup JSON', json);
-      }
+      if (window.UI?.modal?.alert) window.UI.modal.alert(json, { title: 'Transfer templates backup JSON' });
+      else window.prompt('Скопіюйте backup JSON', json);
     };
 
     const importBtn = document.createElement('button');
@@ -104,20 +100,6 @@ export async function renderTransferSettingsSection(container, api) {
     });
 
     container.append(actions, list);
-    const addBtn = document.createElement('button');
-    addBtn.textContent = 'Створити шаблон';
-    addBtn.onclick = () =>
-      openTemplateEditorModal({
-        template: createTemplateDraft(),
-        journals,
-        onSave: async (nextTemplate) => {
-          templates.push(nextTemplate);
-          await saveTemplates(storageAdapter, templates);
-          await render();
-        }
-      });
-
-    container.append(addBtn, list);
   };
 
   await render();
