@@ -34,6 +34,15 @@ export function createRowId(dataset: TableDataset, prefix = 'row'): string {
   return candidate;
 }
 
+export function isGroup(
+  record: RowRecord | undefined,
+): record is RowRecord & { kind: 'group' } {
+  return Boolean(record && record.kind === 'group');
+}
+
+export function isSubrow(
+  record: RowRecord | undefined,
+): record is RowRecord & { kind: 'row'; parentId: RowId } {
 export function isGroup(record: RowRecord | undefined): record is RowRecord {
   return Boolean(record && record.kind === 'group');
 }
