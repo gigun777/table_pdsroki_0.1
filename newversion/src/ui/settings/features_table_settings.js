@@ -46,6 +46,12 @@
         global.localStorage?.setItem?.(key, JSON.stringify(value));
       }
     };
+  }
+
+  async function readTableSettings() {
+    const storage = getSettingsStorage();
+    try {
+      const value = await storage.get(TABLE_SETTINGS_KEY);
       };
     }
 
@@ -66,6 +72,23 @@
     }
   }
 
+  function getJournalsState() {
+    const state = UI.sdo?.getState?.() ?? { journals: [], activeJournalId: null };
+    return {
+      journals: state.journals ?? [],
+      activeJournalId: state.activeJournalId ?? null
+    };
+  }
+
+  async function loadColumnsForJournal(journalId) {
+    const { journals } = getJournalsState();
+    const journal = journals.find((item) => item.id === journalId) ?? null;
+    const templateId = journal?.templateId ?? null;
+    if (!templateId) return [];
+
+    const jt = UI.sdo?.journalTemplates || UI.sdo?.api?.journalTemplates;
+    const template = await jt?.getTemplate?.(templateId);
+    return template?.columns ?? [];
   function renderColumnsSettingsSection(container) {
     container.innerHTML = '';
     const header = document.createElement('h4');
@@ -185,6 +208,7 @@
     const header = document.createElement('h4');
     header.textContent = 'Колонки';
     const desc = document.createElement('p');
+    desc.textContent = 'Оберіть журнал та налаштуйте колонки для підстрок.';
     desc.textContent = 'Відкрийте модалку налаштувань і увімкніть підстроки для потрібних колонок.';
     const openBtn = document.createElement('button');
     openBtn.textContent = 'Налаштувати колонки';
@@ -193,6 +217,8 @@
 
     openBtn.addEventListener('click', async () => {
       let settings = await readTableSettings();
+      const { journals, activeJournalId } = getJournalsState();
+      let selectedJournalId = activeJournalId ?? journals[0]?.id ?? null;
       const state = UI.sdo?.getState?.() ?? { journals: [], activeJournalId: null };
       const activeJournal = (state.journals ?? []).find((j) => j.id === state.activeJournalId) ?? null;
       const templateId = activeJournal?.templateId;
@@ -208,10 +234,25 @@
       body.style.display = 'grid';
       body.style.gap = '12px';
 
+      const journalSelect = document.createElement('select');
+      for (const journal of journals) {
+        journalSelect.append(new Option(journal.title ?? journal.id, journal.id));
+      }
+      if (selectedJournalId) journalSelect.value = selectedJournalId;
+
       const listWrap = document.createElement('div');
       const saveBtn = document.createElement('button');
       saveBtn.textContent = 'Зберегти';
 
+      const rerenderList = async () => {
+        const columns = await loadColumnsForJournal(selectedJournalId);
+        listWrap.innerHTML = '';
+        if (!columns.length) {
+          const empty = document.createElement('p');
+          empty.textContent = 'Для обраного журналу не знайдено колонок.';
+          listWrap.append(empty);
+          return;
+        }
       const rerenderList = () => {
         listWrap.innerHTML = '';
         listWrap.append(createColumnsSettingsNode(settings, columns, (next) => {
@@ -221,6 +262,13 @@
       };
       rerenderList();
 
+      journalSelect.addEventListener('change', async () => {
+        selectedJournalId = journalSelect.value;
+        await rerenderList();
+      });
+
+      await rerenderList();
+      body.append('Обрати журнал', journalSelect, listWrap, saveBtn);
       body.append(listWrap, saveBtn);
 
       const modalId = UI.modal.open({
@@ -346,6 +394,52 @@
     });
   }
 
+  function renderTransferSection(container) {
+    container.innerHTML = '';
+
+    const status = document.createElement('p');
+    status.textContent = 'Завантаження налаштувань перенесення...';
+    container.append(status);
+
+    const run = async () => {
+      try {
+        const { createTransferUI } = await import('../../../../packages/transfer-ui/src/index.js');
+
+        const storageAdapter = getSettingsStorage();
+        const transferUI = createTransferUI({
+          storageAdapter,
+          loadDataset: async (journalId) => {
+            const store = UI.sdo?.api?.tableStore;
+            return (await store?.getDataset?.(journalId)) ?? { journalId, records: [], merges: [] };
+          },
+          saveDataset: async (journalId, dataset) => {
+            const store = UI.sdo?.api?.tableStore;
+            await store?.upsertRecords?.(journalId, dataset.records ?? [], 'replace');
+          },
+          getSchema: async (journalId) => {
+            const { journals } = getJournalsState();
+            const journal = journals.find((item) => item.id === journalId) ?? null;
+            const templateId = journal?.templateId;
+            const template = templateId ? await (UI.sdo?.journalTemplates?.getTemplate?.(templateId)) : null;
+            return {
+              journalId,
+              fields: (template?.columns ?? []).map((column) => ({ id: column.key, title: column.label, type: column.type ?? 'text' }))
+            };
+          },
+          listJournals: async () => {
+            const { journals } = getJournalsState();
+            return journals.map((journal) => ({ id: journal.id, title: journal.title }));
+          }
+        });
+
+        container.innerHTML = '';
+        await transferUI.renderTransferSettingsSection(container);
+      } catch (error) {
+        status.textContent = `Помилка налаштувань перенесення: ${error.message}`;
+      }
+    };
+
+    run();
   async function readTableSettings() {
     const storage = getSettingsStorage();
     try {
@@ -484,6 +578,7 @@
           id: 'transfer',
           title: 'Перенесення',
           order: 40,
+          renderContent: renderTransferSection,
           renderContent: sectionContent('Перенесення', 'Параметри перенесення даних між таблицями.'),
           onConfirm: ({ draft }) => draft
         }

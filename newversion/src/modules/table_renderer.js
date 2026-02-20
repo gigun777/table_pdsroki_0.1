@@ -254,6 +254,59 @@ export function createTableRendererModule(opts = {}) {
     await storage.set(datasetKey, dataset);
   }
 
+  async function resolveSchemaByJournalId(runtime, journalId) {
+    const state = runtime?.api?.getState ? runtime.api.getState() : (runtime?.sdo?.api?.getState ? runtime.sdo.api.getState() : null);
+    const journal = (state?.journals ?? []).find((j) => j.id === journalId) ?? null;
+    const templateId = journal?.templateId;
+    const jt = runtime?.api?.journalTemplates || runtime?.sdo?.api?.journalTemplates || runtime?.sdo?.journalTemplates;
+    if (!templateId || !jt?.getTemplate) return { journalId, fields: [] };
+    const template = await jt.getTemplate(templateId);
+    return {
+      journalId,
+      fields: (template?.columns ?? []).map((column) => ({ id: column.key, title: column.label, type: column.type ?? 'text' }))
+    };
+  }
+
+  function getStorageAdapter(storage) {
+    return {
+      get: async (key) => (await storage.get(key)) ?? null,
+      set: async (key, value) => { await storage.set(key, value); }
+    };
+  }
+
+  async function openTransferModalForRow(runtime, rowId, subrowsBridge) {
+    const sourceState = runtime?.api?.getState ? runtime.api.getState() : (runtime?.sdo?.api?.getState ? runtime.sdo.api.getState() : null);
+    const sourceJournalId = sourceState?.activeJournalId ?? null;
+    if (!sourceJournalId) {
+      window.UI?.toast?.show?.('Немає активного журналу для перенесення');
+      return;
+    }
+
+    const { createTransferUI } = await import('../../packages/transfer-ui/src/index.js');
+    const storageAdapter = getStorageAdapter(runtime.storage);
+    const sourceDataset = await loadDataset(runtime, runtime.storage, sourceJournalId);
+    const recordIds = subrowsBridge.getTransferCandidates(sourceDataset, rowId);
+    const effectiveRecordIds = recordIds.length ? recordIds : [rowId];
+
+    const transferUI = createTransferUI({
+      storageAdapter,
+      loadDataset: async (journalId) => loadDataset(runtime, runtime.storage, journalId),
+      saveDataset: async (journalId, dataset) => saveDataset(runtime, runtime.storage, journalId, dataset),
+      getSchema: async (journalId) => resolveSchemaByJournalId(runtime, journalId),
+      listJournals: async () => {
+        const state = runtime?.api?.getState ? runtime.api.getState() : (runtime?.sdo?.api?.getState ? runtime.sdo.api.getState() : { journals: [] });
+        return (state?.journals ?? []).map((journal) => ({ id: journal.id, title: journal.title }));
+      }
+    });
+
+    await transferUI.openRunTransferModal({ sourceJournalId, recordIds: effectiveRecordIds });
+  }
+
+  function rerender(mount, runtime, renderFn) {
+    mount.innerHTML = '';
+    const cleanup = renderFn();
+    if (typeof cleanup === 'function') return cleanup;
+    return () => {};
   function rerender(mount, runtime, renderFn) {
     mount.innerHTML = '';
     const cleanup = renderFn();
@@ -687,33 +740,45 @@ if (isFirstCol) {
 
           const model = engine.getAddFormModel();
 
+          if (window.UI?.form?.build && window.UI?.modal?.open) {
+            const schema = model.map((f) => ({
+              name: f.key,
           if (window.UI?.form?.create && window.UI?.modal?.open) {
             const schema = model.map((f) => ({
               id: f.key,
               label: f.label,
               type: f.type || 'text',
               required: !!f.required,
-              placeholder: f.placeholder || '',
-              options: f.options || null
+              defaultValue: f.default ?? ''
             }));
-            let modalId;
 
-            const formNode = window.UI.form.create({
-              schema,
+            const content = document.createElement('div');
+            let modalId;
+            window.UI.form.build(content, schema, {
+              submitText: 'Додати',
               onSubmit: async (values) => {
                 const currentDataset = await loadDataset(runtime, runtime.storage, currentJournalId);
                 const addResult = engine.addRow(values, currentDataset);
+                if (!addResult.ok) {
+                  window.UI?.toast?.show?.('Помилка валідації форми');
+                  return;
+                }
                 if (!addResult.ok) return;
                 await saveDataset(runtime, runtime.storage, currentJournalId, addResult.dataset);
                 window.UI.modal.close(modalId);
                 await refreshTable();
-              },
-              onCancel: () => window.UI.modal.close(modalId)
+              }
             });
+
+            const cancel = document.createElement('button');
+            cancel.textContent = 'Скасувати';
+            cancel.style.marginTop = '8px';
+            cancel.addEventListener('click', () => window.UI.modal.close(modalId));
+            content.append(cancel);
 
             modalId = window.UI.modal.open({
               title: 'Додати запис',
-              contentNode: formNode,
+              contentNode: content,
               closeOnOverlay: true,
               escClose: true
             });
@@ -790,6 +855,14 @@ if (isFirstCol) {
         {
           id: 'table.transferRow',
           title: 'Transfer row',
+          run: async (runtime, args = {}) => {
+            const settings = await loadSettings(runtime.storage);
+            const subrowsBridge = createTableSubrowsBridge(subrowsApi, settings.subrows ?? { columnsSubrowsEnabled: {} });
+            const rowId = args?.rowId;
+            if (!rowId) return false;
+            await openTransferModalForRow(runtime, rowId, subrowsBridge);
+            return true;
+          }
           run: async () => true
         }
       ]);
