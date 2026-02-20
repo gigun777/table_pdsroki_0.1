@@ -14,6 +14,7 @@ function normalizeSettings(settings = {}) {
       visibility: settings.columns?.visibility ?? {},
       widths: settings.columns?.widths ?? {}
     },
+    columnsSubrowsEnabled: settings.columnsSubrowsEnabled ?? {},
     sort: settings.sort ?? null,
     filter: {
       global: settings.filter?.global ?? '',
@@ -154,21 +155,25 @@ function flattenRows({ index, settings, editState, visibleSet, sortIds }) {
     if (!record) return;
     const childIds = sortIds(index.childrenById.get(rowId) ?? []).filter((childId) => visibleSet.has(childId));
     const hasChildren = childIds.length > 0;
-    const isExpanded = hasChildren && settings.expandedRowIds.has(rowId);
+    const isGroup = record.kind === 'group';
+    const isExpanded = isGroup ? true : hasChildren && settings.expandedRowIds.has(rowId);
 
-    rows.push({
-      rowId,
-      record,
-      depth,
-      isParent: hasChildren,
-      hasChildren,
-      isExpanded,
-      isSelected: settings.selectedRowIds.has(rowId),
-      isEditing: editState?.rowId === rowId ? editState : null
-    });
+    if (!isGroup) {
+      rows.push({
+        rowId,
+        record,
+        depth,
+        isParent: hasChildren,
+        hasChildren,
+        isExpanded,
+        isSelected: settings.selectedRowIds.has(rowId),
+        isEditing: editState?.rowId === rowId ? editState : null
+      });
+    }
 
     if (!isExpanded) return;
-    for (const childId of childIds) walk(childId, depth + 1);
+    const nextDepth = isGroup ? depth : depth + 1;
+    for (const childId of childIds) walk(childId, nextDepth);
   };
 
   for (const rootId of sortIds(index.rootIds)) walk(rootId, 0);
@@ -211,15 +216,160 @@ export function createTableEngine({ schema, settings = {} }) {
   let datasetIndex = buildDatasetIndex(dataset);
   let editState = null;
 
+  function reindex() {
+    datasetIndex = buildDatasetIndex(dataset);
+  }
+
+  function findSubrowsGroupId(rowId) {
+    const childIds = datasetIndex.childrenById.get(rowId) ?? [];
+    for (const childId of childIds) {
+      const record = datasetIndex.recordById.get(childId);
+      if (record?.kind === 'group') return childId;
+    }
+    return null;
+  }
+
+  function makeSubrowLabel(subrowId) {
+    const subrow = datasetIndex.recordById.get(subrowId);
+    if (!subrow?.parentId) return 'Підстрока';
+    const group = datasetIndex.recordById.get(subrow.parentId);
+    if (!group || group.kind !== 'group') return 'Підстрока';
+    const subrows = (datasetIndex.childrenById.get(group.id) ?? []).filter((id) => datasetIndex.recordById.get(id)?.kind !== 'group');
+    const idx = subrows.indexOf(subrowId);
+    if (idx < 0) return 'Підстрока';
+    return `Підстрока №${idx + 1}`;
+  }
+
   const api = {
     setDataset(nextDataset) {
       dataset = normalizeDataset(nextDataset);
-      datasetIndex = buildDatasetIndex(dataset);
+      reindex();
       return api;
     },
     setSettings(nextSettings) {
       normalizedSettings = normalizeSettings(nextSettings);
       return api;
+    },
+    ensureSubrowsGroup(rowId) {
+      const row = datasetIndex.recordById.get(rowId);
+      if (!row || row.kind === 'group') return { dataset, groupId: null };
+
+      const existingGroupId = findSubrowsGroupId(rowId);
+      if (existingGroupId) return { dataset, groupId: existingGroupId };
+
+      const groupId = `${rowId}::subrows`;
+      const group = {
+        id: groupId,
+        kind: 'group',
+        parentId: rowId,
+        cells: {},
+        fmt: {},
+        childrenIds: []
+      };
+
+      dataset = {
+        ...dataset,
+        records: dataset.records.map((record) => {
+          if (record.id !== rowId) return record;
+          const childrenIds = Array.isArray(record.childrenIds) ? [...record.childrenIds] : [];
+          if (!childrenIds.includes(groupId)) childrenIds.push(groupId);
+          return { ...record, childrenIds };
+        }).concat(group)
+      };
+      normalizedSettings.expandedRowIds.add(rowId);
+      reindex();
+      return { dataset, groupId };
+    },
+    addSubrow(rowId, { insertAfterId } = {}) {
+      const ensured = api.ensureSubrowsGroup(rowId);
+      const groupId = ensured.groupId;
+      if (!groupId) return { dataset, subrowId: null };
+
+      const subrowId = crypto.randomUUID();
+      const group = datasetIndex.recordById.get(groupId);
+      const currentChildren = Array.isArray(group?.childrenIds) ? [...group.childrenIds] : [];
+      const nextChildren = currentChildren.filter((childId) => datasetIndex.recordById.get(childId)?.kind !== 'group');
+      const insertAt = insertAfterId ? nextChildren.indexOf(insertAfterId) + 1 : -1;
+      if (insertAt > 0) nextChildren.splice(insertAt, 0, subrowId);
+      else nextChildren.push(subrowId);
+
+      const subrow = {
+        id: subrowId,
+        kind: 'row',
+        parentId: groupId,
+        cells: {},
+        fmt: {},
+        childrenIds: []
+      };
+
+      dataset = {
+        ...dataset,
+        records: dataset.records.map((record) => (record.id === groupId ? { ...record, childrenIds: nextChildren } : record)).concat(subrow)
+      };
+      normalizedSettings.expandedRowIds.add(groupId);
+      reindex();
+      return { dataset, subrowId };
+    },
+    removeSubrow(subrowId) {
+      const subrow = datasetIndex.recordById.get(subrowId);
+      if (!subrow) return { dataset, removed: false };
+      const groupId = subrow.parentId;
+      const group = groupId ? datasetIndex.recordById.get(groupId) : null;
+      if (!group || group.kind !== 'group') return { dataset, removed: false };
+
+      dataset = {
+        ...dataset,
+        records: dataset.records
+          .filter((record) => record.id !== subrowId)
+          .map((record) => {
+            if (record.id !== groupId) return record;
+            const childrenIds = (record.childrenIds ?? []).filter((id) => id !== subrowId);
+            return { ...record, childrenIds };
+          })
+      };
+      normalizedSettings.selectedRowIds.delete(subrowId);
+      if (editState?.rowId === subrowId) editState = null;
+      reindex();
+      return { dataset, removed: true };
+    },
+    listSubrows(rowId) {
+      const groupId = findSubrowsGroupId(rowId);
+      if (!groupId) return [];
+      const group = datasetIndex.recordById.get(groupId);
+      return (group?.childrenIds ?? []).filter((childId) => datasetIndex.recordById.get(childId)?.kind !== 'group');
+    },
+    resolveCellEditTarget({ rowId, colKey, settings: settingsOverride } = {}) {
+      const settingsState = settingsOverride ?? normalizedSettings;
+      const columnsSubrowsEnabled = settingsState?.columnsSubrowsEnabled ?? {};
+      const subrowsEnabled = columnsSubrowsEnabled[colKey] !== false;
+      if (!subrowsEnabled) return { editTargetRowId: rowId, needsChoice: false, candidates: [rowId] };
+
+      const row = datasetIndex.recordById.get(rowId);
+      if (!row) return { editTargetRowId: rowId, needsChoice: false, candidates: [] };
+      if (row.kind === 'group') {
+        const candidates = (row.childrenIds ?? []).filter((id) => datasetIndex.recordById.get(id)?.kind !== 'group');
+        return { editTargetRowId: candidates[0] ?? null, needsChoice: candidates.length > 1, candidates };
+      }
+
+      if (row.parentId && datasetIndex.recordById.get(row.parentId)?.kind === 'group') {
+        return { editTargetRowId: rowId, needsChoice: false, candidates: [rowId] };
+      }
+
+      const candidates = api.listSubrows(rowId);
+      if (candidates.length === 0) return { editTargetRowId: rowId, needsChoice: false, candidates: [rowId] };
+      if (candidates.length === 1) return { editTargetRowId: candidates[0], needsChoice: false, candidates };
+      return { editTargetRowId: null, needsChoice: true, candidates };
+    },
+    getTransferCandidates(rowId) {
+      const row = datasetIndex.recordById.get(rowId);
+      if (!row) return [];
+      if (row.kind === 'group') return (row.childrenIds ?? []).filter((id) => datasetIndex.recordById.get(id)?.kind !== 'group');
+      if (row.parentId && datasetIndex.recordById.get(row.parentId)?.kind === 'group') return [rowId];
+      const subrows = api.listSubrows(rowId);
+      return subrows.length ? [rowId, ...subrows] : [rowId];
+    },
+    getSubrowLabel(subrowId) {
+      return makeSubrowLabel(subrowId);
     },
     setSort(columnKey, dir = 'asc') {
       normalizedSettings.sort = { columnKey, dir };
@@ -295,6 +445,7 @@ export function createTableEngine({ schema, settings = {} }) {
       }
       return {
         id: crypto.randomUUID(),
+        kind: 'row',
         cells,
         fmt: {},
         childrenIds: []

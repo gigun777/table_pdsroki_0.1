@@ -118,3 +118,39 @@ test('table engine hides records with kind=group from visible rows', () => {
   const view = engine.compute();
   assert.deepEqual(view.rows.map((x) => x.rowId), ['r1']);
 });
+
+
+test('subrows API supports create/list/labels/edit-target/transfer', () => {
+  const engine = createTableEngine({
+    schema,
+    settings: { columns: { order: null, visibility: {}, widths: {} }, columnsSubrowsEnabled: { amount: true }, expandedRowIds: ['p1'], selectedRowIds: [] }
+  });
+
+  engine.setDataset({
+    records: [{ id: 'p1', kind: 'row', cells: { name: 'Parent' }, childrenIds: [] }],
+    merges: []
+  });
+
+  const group = engine.ensureSubrowsGroup('p1');
+  assert.equal(typeof group.groupId, 'string');
+  assert.deepEqual(engine.listSubrows('p1'), []);
+
+  const first = engine.addSubrow('p1');
+  const second = engine.addSubrow('p1', { insertAfterId: first.subrowId });
+  assert.deepEqual(engine.listSubrows('p1'), [first.subrowId, second.subrowId]);
+
+  assert.equal(engine.getSubrowLabel(first.subrowId), 'Підстрока №1');
+  assert.equal(engine.getSubrowLabel(second.subrowId), 'Підстрока №2');
+
+  const editTarget = engine.resolveCellEditTarget({ rowId: 'p1', colKey: 'amount' });
+  assert.equal(editTarget.needsChoice, true);
+  assert.deepEqual(editTarget.candidates, [first.subrowId, second.subrowId]);
+
+  const transferCandidates = engine.getTransferCandidates('p1');
+  assert.deepEqual(transferCandidates, ['p1', first.subrowId, second.subrowId]);
+
+  const removed = engine.removeSubrow(first.subrowId);
+  assert.equal(removed.removed, true);
+  assert.deepEqual(engine.listSubrows('p1'), [second.subrowId]);
+  assert.equal(engine.getSubrowLabel(second.subrowId), 'Підстрока №1');
+});
