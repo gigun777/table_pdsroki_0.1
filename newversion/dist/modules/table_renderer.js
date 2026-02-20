@@ -679,6 +679,7 @@ if (isFirstCol) {
         };
 
         async function openAddRowFlow() {
+        addBtn.addEventListener('click', async () => {
           if (!engine) {
             await refreshTable();
             return;
