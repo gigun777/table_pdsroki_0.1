@@ -1,0 +1,47 @@
+/* Column Settings Modal (vanilla JS) */
+.dvcs-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:9999;padding:16px;}
+.dvcs-overlay.dv-open{display:flex;}
+.dvcs-modal{width:min(1100px,100%);max-height:min(88vh,900px);background:#fff;border-radius:14px;box-shadow:0 18px 60px rgba(0,0,0,.25);overflow:hidden;display:flex;flex-direction:column;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;}
+.dvcs-header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid rgba(0,0,0,.08);}
+.dvcs-title{font-size:16px;font-weight:800;display:flex;gap:10px;align-items:center;}
+.dvcs-subtitle{font-size:12px;color:rgba(0,0,0,.55);margin-top:2px;font-weight:600;}
+.dvcs-close{border:0;background:transparent;cursor:pointer;padding:8px;border-radius:10px;font-size:18px;line-height:1;}
+.dvcs-close:hover{background:rgba(0,0,0,.06);}
+.dvcs-body{padding:14px;overflow:auto;}
+.dvcs-footer{display:flex;gap:10px;padding:12px 14px;border-top:1px solid rgba(0,0,0,.08);justify-content:flex-end;background:#fafafa;}
+.dvcs-btn{border:1px solid rgba(0,0,0,.15);background:#fff;color:#111;border-radius:10px;padding:9px 12px;cursor:pointer;font-weight:700;font-size:13px;}
+.dvcs-btn:hover{background:rgba(0,0,0,.04);}
+.dvcs-btn:disabled{opacity:.5;cursor:not-allowed;}
+.dvcs-primary{background:#111;color:#fff;border-color:#111;}
+.dvcs-primary:hover{background:#000;}
+.dvcs-danger{background:#fff;border-color:rgba(220,38,38,.35);color:#b91c1c;}
+.dvcs-danger:hover{background:rgba(220,38,38,.06);}
+.dvcs-grid{display:grid;grid-template-columns:360px 1fr;gap:14px;}
+@media (max-width:950px){.dvcs-grid{grid-template-columns:1fr;}}
+.dvcs-panel{border:1px solid rgba(0,0,0,.10);border-radius:14px;overflow:hidden;background:#fff;}
+.dvcs-panel-h{padding:10px 12px;border-bottom:1px solid rgba(0,0,0,.08);font-weight:900;font-size:13px;background:#fafafa;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.dvcs-panel-b{padding:12px;}
+.dvcs-search{height:34px;border-radius:10px;border:1px solid rgba(0,0,0,.14);padding:0 10px;font-size:13px;outline:none;background:#fff;min-width:160px;flex:1;}
+.dvcs-search:focus{border-color:rgba(0,0,0,.35);}
+.dvcs-list{display:flex;flex-direction:column;gap:8px;}
+.dvcs-item{display:flex;align-items:center;justify-content:space-between;border:1px solid rgba(0,0,0,.12);border-radius:12px;padding:9px 10px;cursor:pointer;user-select:none;background:#fff;gap:10px;}
+.dvcs-item:hover{background:rgba(0,0,0,.03);}
+.dvcs-item.dv-active{border-color:#111;box-shadow:0 0 0 2px rgba(0,0,0,.04) inset;}
+.dvcs-item-left{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.dvcs-item-title{font-weight:900;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dvcs-item-meta{font-size:11.5px;color:rgba(0,0,0,.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dvcs-badge{font-size:11px;color:rgba(0,0,0,.6);background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.08);padding:2px 8px;border-radius:999px;font-weight:750;}
+.dvcs-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.dvcs-col{display:flex;flex-direction:column;gap:6px;min-width:220px;}
+.dvcs-label{font-size:12px;color:rgba(0,0,0,.65);font-weight:750;}
+.dvcs-input,.dvcs-select{height:34px;border-radius:10px;border:1px solid rgba(0,0,0,.14);padding:0 10px;font-size:13px;outline:none;background:#fff;}
+.dvcs-input:focus,.dvcs-select:focus{border-color:rgba(0,0,0,.35);}
+.dvcs-hint{font-size:12px;color:rgba(0,0,0,.55);margin-top:8px;}
+.dvcs-alert{border:1px solid rgba(0,0,0,.12);border-radius:14px;padding:10px 12px;background:#fafafa;font-size:12.5px;color:rgba(0,0,0,.75);margin-top:12px;}
+.dvcs-check{display:flex;gap:8px;align-items:center;font-size:12.5px;color:rgba(0,0,0,.75);}
+.dvcs-order{display:flex;gap:6px;align-items:center;}
+.dvcs-mini{border:1px solid rgba(0,0,0,.14);background:#fff;border-radius:10px;height:34px;padding:0 10px;cursor:pointer;font-weight:900;}
+.dvcs-mini:hover{background:rgba(0,0,0,.04);}
+.dvcs-mini:disabled{opacity:.5;cursor:not-allowed;}
+.dvcs-preview{border:1px dashed rgba(0,0,0,.18);border-radius:12px;padding:10px 12px;background:rgba(0,0,0,.02);font-size:12px;color:rgba(0,0,0,.65);margin-top:10px;}
+.dvcs-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;}

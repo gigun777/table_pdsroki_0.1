@@ -1,0 +1,67 @@
+/* Action modal like screenshot */
+.dvsra-overlay{
+  position:fixed; inset:0;
+  background:rgba(0,0,0,.25);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+  padding:18px;
+}
+.dvsra-overlay.dvsra-open{ display:flex; }
+
+.dvsra-modal{
+  width:min(760px, 100%);
+  background:#fff;
+  border-radius:16px;
+  box-shadow:0 18px 60px rgba(0,0,0,.25);
+  padding:22px 26px;
+}
+
+.dvsra-title{
+  font-size:20px;
+  font-weight:850;
+  margin-bottom:10px;
+}
+
+.dvsra-subtitle{
+  font-size:13px;
+  color:rgba(0,0,0,.55);
+  margin-bottom:18px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.dvsra-actions{
+  display:flex;
+  gap:12px;
+  justify-content:center;
+}
+
+.dvsra-btn{
+  border-radius:12px;
+  padding:10px 16px;
+  font-weight:800;
+  font-size:13px;
+  cursor:pointer;
+  border:1px solid rgba(0,0,0,.15);
+  background:#fff;
+  color:#111;
+}
+
+.dvsra-btn:hover{ background:rgba(0,0,0,.04); }
+
+.dvsra-primary{
+  background:#111;
+  border-color:#111;
+  color:#fff;
+}
+.dvsra-primary:hover{ background:#000; }
+
+.dvsra-cancel{ background:#fff; }
+
+@media (max-width:520px){
+  .dvsra-actions{ flex-direction:column; }
+  .dvsra-btn{ width:100%; }
+}

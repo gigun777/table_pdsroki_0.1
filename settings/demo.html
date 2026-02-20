@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>ColumnSettingsUI Demo</title>
+  <link rel="stylesheet" href="./column_settings_modal.css"/>
+</head>
+<body style="font-family:system-ui; padding:20px;">
+  <h2>ColumnSettingsUI Demo</h2>
+  <p>Демо модалки налаштування колонок.</p>
+  <button id="open" style="padding:10px 12px;">Відкрити Налаштування → Колонки</button>
+
+  <!-- Column Settings Modal markup: include once -->
+<div id="dvColSettingsOverlay" class="dvcs-overlay" aria-hidden="true">
+  <div class="dvcs-modal" role="dialog" aria-modal="true" aria-labelledby="dvColSettingsTitle">
+    <div class="dvcs-header">
+      <div>
+        <div class="dvcs-title" id="dvColSettingsTitle">Налаштування → Колонки</div>
+        <div class="dvcs-subtitle" id="dvColSettingsSubtitle">Назва • тип • ширина • видимість • порядок</div>
+      </div>
+      <button class="dvcs-close" data-dvcs-close title="Закрити">✕</button>
+    </div>
+
+    <div class="dvcs-body">
+      <div class="dvcs-grid">
+        <div class="dvcs-panel">
+          <div class="dvcs-panel-h">
+            <span>Список колонок</span>
+            <input id="dvcsSearch" class="dvcs-search" placeholder="Пошук..." />
+          </div>
+          <div class="dvcs-panel-b">
+            <div id="dvcsList" class="dvcs-list"></div>
+            <div class="dvcs-row" style="margin-top:12px;">
+              <button id="dvcsAdd" class="dvcs-btn">+ Додати</button>
+              <button id="dvcsDup" class="dvcs-btn">⎘ Дублювати</button>
+              <button id="dvcsDel" class="dvcs-btn dvcs-danger">🗑 Видалити</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="dvcs-panel">
+          <div class="dvcs-panel-h">
+            <span>Редактор колонки</span>
+            <div class="dvcs-order">
+              <button id="dvcsUp" class="dvcs-mini" title="Вище">↑</button>
+              <button id="dvcsDown" class="dvcs-mini" title="Нижче">↓</button>
+            </div>
+          </div>
+          <div class="dvcs-panel-b">
+            <div class="dvcs-row">
+              <div class="dvcs-col" style="flex:1; min-width:260px;">
+                <div class="dvcs-label">Назва</div>
+                <input id="dvcsName" class="dvcs-input" placeholder="Напр.: Дата" />
+              </div>
+              <div class="dvcs-col" style="min-width:220px;">
+                <div class="dvcs-label">Ключ (id)</div>
+                <input id="dvcsId" class="dvcs-input" placeholder="c_date" />
+              </div>
+            </div>
+
+            <div class="dvcs-row" style="margin-top:10px;">
+              <div class="dvcs-col">
+                <div class="dvcs-label">Тип</div>
+                <select id="dvcsType" class="dvcs-select">
+                  <option value="text">Текст</option>
+                  <option value="number">Число</option>
+                  <option value="date">Дата</option>
+                  <option value="datetime">Дата+час</option>
+                  <option value="select">Список (select)</option>
+                  <option value="checkbox">Прапорець</option>
+                  <option value="multiline">Багаторядковий текст</option>
+                </select>
+              </div>
+
+              <div class="dvcs-col">
+                <div class="dvcs-label">Ширина (px)</div>
+                <input id="dvcsWidth" class="dvcs-input" type="number" min="40" step="10" placeholder="160" />
+              </div>
+
+              <div class="dvcs-col">
+                <div class="dvcs-label">Вирівнювання</div>
+                <select id="dvcsAlign" class="dvcs-select">
+                  <option value="left">Ліворуч</option>
+                  <option value="center">По центру</option>
+                  <option value="right">Праворуч</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="dvcs-row" style="margin-top:10px;">
+              <label class="dvcs-check"><input id="dvcsVisible" type="checkbox" checked /> Показувати колонку</label>
+              <label class="dvcs-check"><input id="dvcsWrap" type="checkbox" /> Перенос рядка (wrap)</label>
+              <label class="dvcs-check"><input id="dvcsRequired" type="checkbox" /> Обов’язкова</label>
+            </div>
+
+            <div class="dvcs-row" style="margin-top:10px;">
+              <div class="dvcs-col" style="flex:1; min-width:260px;">
+                <div class="dvcs-label">Формат (для number/date)</div>
+                <input id="dvcsFormat" class="dvcs-input" placeholder="Напр.: 0.00 або YYYY-MM-DD" />
+              </div>
+              <div class="dvcs-col" style="flex:1; min-width:260px;">
+                <div class="dvcs-label">Значення за замовчуванням</div>
+                <input id="dvcsDefault" class="dvcs-input" placeholder="Напр.: сьогодні / 0 / текст" />
+              </div>
+            </div>
+
+            <div class="dvcs-row" style="margin-top:10px;">
+              <div class="dvcs-col" style="flex:1; min-width:260px;">
+                <div class="dvcs-label">Опції (для select) — через “;”</div>
+                <input id="dvcsOptions" class="dvcs-input" placeholder="Напр.: Нове;В роботі;Закрито" />
+              </div>
+            </div>
+
+            <div id="dvcsPreview" class="dvcs-preview"></div>
+            <div class="dvcs-hint">Порядок колонок впливає на індекси клітинок у рядку (row[]).</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dvcs-alert" id="dvcsMsg" style="display:none;"></div>
+    </div>
+
+    <div class="dvcs-footer">
+      <button class="dvcs-btn" data-dvcs-close>Скасувати</button>
+      <button id="dvcsReload" class="dvcs-btn">↻ Перезавантажити</button>
+      <button id="dvcsSave" class="dvcs-btn dvcs-primary">💾 Зберегти</button>
+    </div>
+  </div>
+</div>
+
+
+  <script src="./column_settings_modal.js"></script>
+  <script>
+    let sheet = {
+      key: "inbox",
+      name: "Вхідні",
+      columns: [
+        { id:"c_date", name:"Дата", type:"date", width:120, align:"left", visible:true, wrap:false, required:true, format:"YYYY-MM-DD", default:"", options:[] },
+        { id:"c_name", name:"ПІБ", type:"text", width:220, align:"left", visible:true, wrap:false, required:true },
+        { id:"c_topic", name:"Тема", type:"multiline", width:260, align:"left", visible:true, wrap:true, required:false, subrows:true },
+        { id:"c_sum", name:"Сума", type:"number", width:120, align:"right", visible:true, wrap:false, required:false, format:"0.00", default:"0" },
+        { id:"c_state", name:"Стан", type:"select", width:140, align:"center", visible:true, wrap:false, required:false, options:["Нове","В роботі","Закрито"], default:"Нове" }
+      ]
+    };
+
+    document.getElementById("open").onclick = () => {
+      ColumnSettingsUI.open({
+        sheet,
+        onSave: (newColumns) => {
+          console.log("SAVE columns:", newColumns);
+          sheet.columns = newColumns;
+          alert("Збережено. Дивись console.");
+        }
+      });
+    };
+  </script>
+</body>
+</html>
